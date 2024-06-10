@@ -28,7 +28,7 @@ This project implements a two-factor authentication (2FA) system using hashed cr
 
 ### Run the Application
 ```sh
-python main.py
+python app.py
 ```
 
 ## Register a User
