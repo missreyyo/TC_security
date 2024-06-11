@@ -1,84 +1,99 @@
 # ZeroSafer
 
-This project implements a two-factor authentication (2FA) system using hashed credentials and algorithm-based challenges. Additionally, it allows users to generate, store, and share symmetric keys.
+This is a simple authentication system based on the Schnorr signature scheme implemented using Python and Tkinter GUI library.
 
-## Features
+## Requirements
 
-- User Registration: Register with a TC ID (Turkish Citizenship ID) and a username. Select an algorithm (square root, square, or prime factors) to generate a random number as a challenge.
-- Authentication: Authenticate by providing your TC ID, username, and solving the challenge based on the selected algorithm.
-
-- Symmetric Key Management: Generate, store, and send symmetric keys to other registered users. View the symmetric keys you have sent and received.
-
-## Prerequisites
-
-- Python 3.x: Ensure you have Python 3 installed on your system.
-- Tkinter: Included with Python's standard library for GUI development.
-
-- SQLite 3: Included with Python's standard library for database management.
-- Sympy: A Python library for symbolic mathematics.
+- Python 3.x
+- Tkinter
+- sympy
+- secrets
+- hashlib
+- sqlite3
 
 ## Installation
 
 1. Clone the repository:
-   ```sh
-   git clone https://github.com/missreyyo/TC_security.git
-   cd two-factor-authentication-system
+    ```bash
+    git clone https://github.com/missreyyo/TC_security.git
     ```
+
+2. Navigate to the project directory:
+    ```bash
+    cd schnorr-authentication
+    ```
+
+3. Install the dependencies:
+
+```bash
+pip install tkinter sympy secrets hashlib sqlite3
+```
 ## Usage
 
-### Run the Application
-```sh
-python app.py
-```
+1. Run the application:
+    ```bash
+    python app.py
+    ```
 
-## Register a User
+2. Two tabs will be displayed:
+    - **Register**: Allows users to register with their TC ID and username.
+    - **Authenticate**: Allows registered users to authenticate with their TC ID, username, and secret key.
 
-1. Navigate to the **"Register"** tab.
-2. Enter your **TC ID** and **username**.
-3. Select an **algorithm**.
-4. Click **"Register"**.
+3. To register:
+    - Enter your TC ID and username.
+    - Click on the **Register** button.
+    - Save the secret key displayed in the text area.
 
-## Authenticate a User
+4. To authenticate:
+    - Enter your TC ID, username, and secret key.
+    - Click on the **Authenticate** button.
+    - A message box will appear indicating whether the authentication was successful or not.
 
-1. Go to the **"Authenticate"** tab.
-2. Enter your **TC ID** and **username**.
-3. Select the **algorithm** used during registration.
-4. Enter the **expected value** based on the algorithm.
-5. Click **"Authenticate"**.
+## Database
 
-## Manage Symmetric Keys
+The application uses an SQLite database named `authentication.db` to store user information.
 
-1. After authentication, go to the **"Symmetric Key"** tab.
-2. **Generate** and **store** a symmetric key.
-3. **Send** the symmetric key to another registered user.
-4. View your **sent** and **received** symmetric keys.
+## Security
 
-
+- The Schnorr signature scheme is used for authentication, providing security against various attacks.
+- User information such as TC ID and username are hashed using SHA-256 before storing them in the database.
 ## Functions
 
-### User Functions
+### `register()`
 
-- **`register()`**: Registers a new user with hashed TC ID and username. Generates a random number based on the selected algorithm and stores the user data in the database.
-- **`authenticate()`**: Authenticates a user by verifying the hashed TC ID and the provided algorithm input.
+- Used to register a user.
+- Validates the entered TC ID and username.
+- If valid, generates Schnorr keys and saves the user.
+- Displays the saved keys to the user.
 
-### Symmetric Key Functions
+### `authenticate()`
 
-- **`generate_and_store_symmetric_key()`**: Generates a random symmetric key and stores it for the authenticated user.
-- **`send_symmetric_key()`**: Sends a symmetric key to another registered user.
-- **`view_symmetric_keys()`**: Displays the symmetric keys generated and stored by the authenticated user.
-- **`view_received_keys()`**: Displays the symmetric keys received from other users.
+- Used for user authentication.
+- Validates the entered TC ID, username, and secret key.
+- If valid, performs Schnorr identity verification and notifies the user of the result.
+
+### `is_tc_registered(hashed_tc)`
+
+- Checks if the specified TC ID is registered in the database.
+
+### `is_username_registered(hashed_username)`
+
+- Checks if the specified username is registered in the database.
+
+### `save_user(hashed_tc, hashed_username, public_key, g, p)`
+
+- Saves a new user to the database.
 
 ## Database Structure
 
-### `users` table:
-- `id`: INTEGER PRIMARY KEY
-- `hashed_tc`: TEXT UNIQUE
-- `hashed_username`: TEXT UNIQUE
-- `random_number`: INTEGER
-- `algorithm`: TEXT
+The application uses an SQLite database named `authentication.db` with the following table structure:
 
-### `symmetric_keys` table:
-- `id`: INTEGER PRIMARY KEY
-- `sender_hashed_username`: TEXT
-- `recipient_hashed_username`: TEXT
-- `symmetric_key`: TEXT
+- **users**:
+  - **id**: INTEGER PRIMARY KEY AUTOINCREMENT
+  - **hashed_tc**: TEXT (UNIQUE)
+  - **hashed_username**: TEXT (UNIQUE)
+  - **public_key**: TEXT
+  - **g**: TEXT
+  - **p**: TEXT
+
+This table stores user information including hashed TC ID, hashed username, public key, and parameters `g` and `p` required for the Schnorr signature scheme.
