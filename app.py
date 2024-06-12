@@ -5,6 +5,8 @@ import hashlib
 import secrets
 import sqlite3
 from sympy import isprime, randprime
+import pycryptosat
+import subprocess
 
 # Database connection
 conn = sqlite3.connect('authentication.db')
@@ -60,88 +62,115 @@ def schnorr_verify(public_key, response, challenge, commitment, p, g):
     right = (commitment * pow(public_key, challenge, p)) % p
     return left == right
 
+# ZkSNARK functions
+def zk_snark_prove(statement):
+    # Use libsnark to generate a proof
+    proof = subprocess.check_output(['libsnark_prove', statement])
+    return proof
+
+def zk_snark_verify(proof, statement):
+    # Use libsnark to verify the proof
+    result = subprocess.check_output(['libsnark_verify', proof, statement])
+    return result == b'1'
+
 # Register function
 def register():
-    tc_number = entry_register.get()
-    username = entry_username.get()
-    
-    if not validate_tc_number(tc_number):
-        messagebox.showerror("Error", "Invalid TC ID.")
-        return
-    
-    if not username:
-        messagebox.showerror("Error", "Username cannot be empty.")
-        return
-    
-    hashed_tc = hash_string(tc_number)
-    hashed_username = hash_string(username)
-    
-    if is_tc_registered(hashed_tc):
-        messagebox.showerror("Error", "This TC ID is already registered.")
-        return
-    
-    if is_username_registered(hashed_username):
-        messagebox.showerror("Error", "This username is already registered.")
-        return
-    
-    # Generate Schnorr keys
-    p, q, g = generate_prime_group()
-    secret, public_key = schnorr_generate_keys(p, q, g)
-    
-    # Save user
-    save_user(hashed_tc, hashed_username, str(public_key), str(g), str(p))
-    
-    key_display.delete(1.0, tk.END)
-    key_display.insert(tk.END, f"Username: {username}\nHashed TC ID: {hashed_tc}\n")
-    key_display.insert(tk.END, f"Public Key: {public_key}\n")
-    key_display.insert(tk.END, f"Secret Key (Save this!): {secret}\n")
-    
-    messagebox.showinfo("Success", "Registration successful! Save your secret key.")
-
+    try:
+        tc_number = entry_register.get()
+        username = entry_username.get()
+        
+        if not validate_tc_number(tc_number):
+            messagebox.showerror("Error", "Invalid TC ID.")
+            return
+        
+        if not username:
+            messagebox.showerror("Error", "Username cannot be empty.")
+            return
+        
+        hashed_tc = hash_string(tc_number)
+        hashed_username = hash_string(username)
+        
+        if is_tc_registered(hashed_tc):
+            messagebox.showerror("Error", "This TC ID is already registered.")
+            return
+        
+        if is_username_registered(hashed_username):
+            messagebox.showerror("Error", "This username is already registered.")
+            return
+        
+        # Generate Schnorr keys
+        p, q, g = generate_prime_group()
+        secret, public_key = schnorr_generate_keys(p, q, g)
+        
+        # Save user
+        save_user(hashed_tc, hashed_username, str(public_key), str(g), str(p))
+        
+        key_display.delete(1.0, tk.END)
+        key_display.insert(tk.END, f"Username: {username}\nHashed TC ID: {hashed_tc}\n")
+        key_display.insert(tk.END, f"Public Key: {public_key}\n")
+        key_display.insert(tk.END, f"Secret Key (Save this!): {secret}\n")
+        
+        messagebox.showinfo("Success", "Registration successful! Save your secret key.")
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {e}")
 
 # Authentication function
 def authenticate():
-    tc_number = entry_auth.get()
-    username = entry_auth_username.get()
-    secret_key = entry_secret_key.get()
-    
-    if not validate_tc_number(tc_number):
-        messagebox.showerror("Error", "Invalid TC ID.")
-        return
-    
-    if not username:
-        messagebox.showerror("Error", "Username cannot be empty.")
-        return
+    try:
+        tc_number = entry_auth.get()
+        username = entry_auth_username.get()
+        secret_key = entry_secret_key.get()
+        auth_method = combo_method.get()
+        
+        if not validate_tc_number(tc_number):
+            messagebox.showerror("Error", "Invalid TC ID.")
+            return
+        
+        if not username:
+            messagebox.showerror("Error", "Username cannot be empty.")
+            return
 
-    if not secret_key.isdigit():
-        messagebox.showerror("Error", "Invalid secret key.")
-        return
-    
-    hashed_tc = hash_string(tc_number)
-    hashed_username = hash_string(username)
+        if not secret_key.isdigit():
+            messagebox.showerror("Error", "Invalid secret key.")
+            return
+        
+        hashed_tc = hash_string(tc_number)
+        hashed_username = hash_string(username)
 
-    cursor.execute('SELECT public_key, g, p FROM users WHERE hashed_tc = ?', (hashed_tc,))
-    result = cursor.fetchone()
+        cursor.execute('SELECT public_key, g, p FROM users WHERE hashed_tc = ?', (hashed_tc,))
+        result = cursor.fetchone()
 
-    if not result:
-        messagebox.showerror("Error", "User not found.")
-        return
+        if not result:
+            messagebox.showerror("Error", "User not found.")
+            return
 
-    public_key, g, p = result
-    public_key = int(public_key)
-    g = int(g)
-    p = int(p)
-    secret_key = int(secret_key)
+        public_key, g, p = result
+        public_key = int(public_key)
+        g = int(g)
+        p = int(p)
+        secret_key = int(secret_key)
 
-    # Perform Schnorr authentication
-    r, commitment = schnorr_generate_commitment(p, g, p - 1)
-    challenge = schnorr_generate_challenge()
-    response = schnorr_generate_response(secret_key, r, challenge, p - 1)
-    
-    if schnorr_verify(public_key, response, challenge, commitment, p, g):
-        messagebox.showinfo("Success", "Authentication successful!")
-    else:
-        messagebox.showerror("Error", "Authentication failed.")
+        if auth_method == 'Schnorr':
+            # Perform Schnorr authentication
+            r, commitment = schnorr_generate_commitment(p, g, p - 1)
+            challenge = schnorr_generate_challenge()
+            response = schnorr_generate_response(secret_key, r, challenge, p - 1)
+            
+            if schnorr_verify(public_key, response, challenge, commitment, p, g):
+                messagebox.showinfo("Success", "Authentication successful!")
+            else:
+                messagebox.showerror("Error", "Authentication failed.")
+        elif auth_method == 'ZkSNARK':
+            # ZkSNARK Authentication
+            statement = f"{hashed_tc}{hashed_username}"
+            proof = zk_snark_prove(statement)
+            
+            if zk_snark_verify(proof, statement):
+                messagebox.showinfo("Success", "ZkSNARK Authentication successful!")
+            else:
+                messagebox.showerror("Error", "ZkSNARK Authentication failed.")
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {e}")
 
 # Helper functions to manage users and keys
 def is_tc_registered(hashed_tc):
@@ -160,10 +189,16 @@ def save_user(hashed_tc, hashed_username, public_key, g, p):
     conn.commit()
 
 
+def on_closing():
+    try:
+        conn.close()
+    except Exception as e:
+        print(f"Error closing the database connection: {e}")
+    app.destroy()
 
 # GUI setup
 app = tk.Tk()
-app.title("Schnorr Authentication")
+app.title("Schnorr & ZkSNARK Authentication")
 
 # Tab Control
 tabControl = ttk.Notebook(app)
@@ -200,6 +235,12 @@ tk.Label(tab_authenticate, text="Secret Key:").grid(row=2, column=0, padx=5, pad
 entry_secret_key = tk.Entry(tab_authenticate)
 entry_secret_key.grid(row=2, column=1, padx=5, pady=5)
 
-tk.Button(tab_authenticate, text="Authenticate", command=authenticate).grid(row=3, columnspan=2, pady=10)
+tk.Label(tab_authenticate, text="Authentication Method:").grid(row=3, column=0, padx=5, pady=5)
+combo_method = ttk.Combobox(tab_authenticate, values=["Schnorr", "ZkSNARK"])
+combo_method.grid(row=3, column=1, padx=5, pady=5)
+combo_method.current(0)  # Default to "Schnorr"
 
+tk.Button(tab_authenticate, text="Authenticate", command=authenticate).grid(row=4, columnspan=2, pady=10)
+
+app.protocol("WM_DELETE_WINDOW", on_closing)
 app.mainloop()
